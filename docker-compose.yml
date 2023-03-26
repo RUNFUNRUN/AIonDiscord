@@ -1,0 +1,14 @@
+version: "1"
+services:
+  app:
+    image: node:17
+    environment:
+      - DEBUG=app:*
+    env_file: ./.env
+    tty: true
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: npm start
