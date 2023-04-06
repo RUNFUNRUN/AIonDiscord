@@ -68,17 +68,15 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     try {
       message.channel.sendTyping();
-      const response = await openai.createCompletion({
-        model: 'text-davinci-003',
-        prompt: `${message.content}`,
-        max_tokens: 1024,
-        temperature: 0.5,
+      const completion = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: message.content }],
       });
-      if (response.data.choices[0].text === undefined) {
+      if (completion.data.choices[0].message.content === undefined) {
         throw new Error('No response from AI.');
       }
       await message.channel.send({
-        content: response.data.choices[0].text,
+        content: completion.data.choices[0].message.content,
         reply: { messageReference: message.id },
         allowedMentions: { repliedUser: false },
       });
