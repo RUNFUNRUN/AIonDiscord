@@ -1,26 +1,28 @@
 {
-  "name": "aiondiscord",
-  "version": "1.0.0",
-  "description": "",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/RUNFUNRUN/AIonDiscord.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/RUNFUNRUN/AIonDiscord/issues"
-  },
-  "homepage": "https://github.com/RUNFUNRUN/AIonDiscord#readme",
-  "dependencies": {
-    "discord.js": "^13.14.0",
-    "dotenv": "^16.0.3",
-    "openai": "^3.2.1"
-  }
+    "name": "aiondiscord",
+    "version": "1.0.0",
+    "description": "",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "start": "tsc && node dist/index.js",
+        "build": "tsc"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/RUNFUNRUN/AIonDiscord.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/RUNFUNRUN/AIonDiscord/issues"
+    },
+    "homepage": "https://github.com/RUNFUNRUN/AIonDiscord#readme",
+    "dependencies": {
+        "@types/node": "^18.15.13",
+        "discord.js": "^14.9.0",
+        "dotenv": "^16.0.3",
+        "openai": "^3.2.1",
+        "typescript": "^5.0.4"
+    }
 }
