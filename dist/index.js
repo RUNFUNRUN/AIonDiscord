@@ -1,25 +1,14 @@
-import { Message, Client, Interaction, Collection, SlashCommandBuilder, Events, ChatInputCommandInteraction, GatewayIntentBits } from 'discord.js';
+import { Client, SlashCommandBuilder, Events, GatewayIntentBits } from 'discord.js';
 import dotenv from 'dotenv';
 dotenv.config();
 import { Configuration, OpenAIApi } from 'openai';
-
 const discordToken = process.env.TOKEN;
 const openaiToken = process.env.OPENAI_API_KEY;
-
-/* interface */
-
-interface Command {
-    data: { name: string, description: string };
-    execute(interaction: ChatInputCommandInteraction): Promise<void>;
-}
-
 const configuration = new Configuration({
     apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
-
 let AiActive = false;
-
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -28,15 +17,11 @@ const client = new Client({
         GatewayIntentBits.GuildMembers,
     ],
 });
-
 const AiLogs = () => AiActive ? 'AI is active.' : 'AI is inactive.';
-
-
 const ping = new SlashCommandBuilder().setName('ping').setDescription('pong!');
 const comeai = new SlashCommandBuilder().setName('comeai').setDescription('come ai');
 const byeai = new SlashCommandBuilder().setName('byeai').setDescription('bye ai');
-
-const commands: Command[] = [
+const commands = [
     {
         data: ping,
         execute: async (interaction) => {
@@ -60,10 +45,8 @@ const commands: Command[] = [
         },
     },
 ];
-
 const app = client.application;
 app?.commands.set(commands.map((command) => command.data));
-
 /* const commands = {
     async ping(interaction) {
         await interaction.reply('pong!');
@@ -81,8 +64,6 @@ app?.commands.set(commands.map((command) => command.data));
         await interaction.reply('AI is inactive!');
     },
 }; */
-
-
 /* client.on('messageCreate', async (message) => {
     if (AiActive) {
         if (message.author.bot) return;
@@ -127,36 +108,29 @@ client.on(Events.InteractionCreate, async interaction => {
         }
     }
 }); */
-
-client.once(Events.ClientReady, (c: Client) => {
+client.once(Events.ClientReady, (c) => {
     console.log(`Ready! Logged in as ${c.user?.tag}`);
 });
-
-client.on(Events.MessageCreate, async (message: Message) => {
+client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) {
         return;
     }
 });
-
-client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isCommand()) {
         return;
     }
     const commandName = interaction.commandName;
     const command = commands.find((command) => command.data.name === commandName);
     if (!command) {
-        // command is not found
         return;
     }
     try {
-        // execute command
-        await command.execute(interaction as ChatInputCommandInteraction);
-    } catch (error) {
-        // error occurred
+        await command.execute(interaction);
+    }
+    catch (error) {
         console.error(error);
         await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
     }
-
 });
-
 client.login(discordToken);
