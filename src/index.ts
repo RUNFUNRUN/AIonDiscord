@@ -56,32 +56,17 @@ const aiLogs = (guildId: string) => {
     return isActive ? 'AI is active.' : 'AI is inactive.';
 };
 
-const ping = new SlashCommandBuilder().setName('ping').setDescription('pong!');
-const tokenInit = new SlashCommandBuilder()
-    .setName('token')
-    .setDescription('set openai api token')
-    .addStringOption((option) =>
-        option
-            .setName('token')
-            .setDescription('openai api token')
-            .setRequired(true)
-    );
-const comeai = new SlashCommandBuilder()
-    .setName('comeai')
-    .setDescription('come ai');
-const byeai = new SlashCommandBuilder()
-    .setName('byeai')
-    .setDescription('bye ai');
-
 const commands: Command[] = [
     {
-        data: ping,
+        data: new SlashCommandBuilder().setName('ping').setDescription('pong!'),
         execute: async (interaction) => {
             await interaction.reply('pong!');
         },
     },
     {
-        data: comeai,
+        data: new SlashCommandBuilder()
+            .setName('comeai')
+            .setDescription('come ai'),
         execute: async (interaction) => {
             const guildId = interaction.guildId as string;
             // if database does not have token data, return.
@@ -100,7 +85,9 @@ const commands: Command[] = [
         },
     },
     {
-        data: byeai,
+        data: new SlashCommandBuilder()
+            .setName('byeai')
+            .setDescription('bye ai'),
         execute: async (interaction) => {
             const guildId = interaction.guildId as string;
             if (!checkIfActive(guildId)) {
@@ -114,10 +101,24 @@ const commands: Command[] = [
         },
     },
     {
-        data: tokenInit,
+        data: new SlashCommandBuilder()
+            .setName('inittoken')
+            .setDescription('set openai api token')
+            .addStringOption((option) =>
+                option
+                    .setName('token')
+                    .setDescription('openai api token')
+                    .setRequired(true)
+            ),
         execute: async (interaction) => {
             const token = interaction.options.getString('token');
             const guildId = interaction.guildId;
+            // if guildId is already in database, return.
+            const tokens = await db.find({ guildId: guildId });
+            if (tokens.length !== 0) {
+                await interaction.reply('Token is already set.');
+                return;
+            }
             if (token === null || guildId === null) {
                 await interaction.reply('Error occurred.');
                 return;
@@ -127,6 +128,46 @@ const commands: Command[] = [
             await interaction.reply({ content: 'Token set successfully. ', ephemeral: true });
         },
     },
+    {
+        data: new SlashCommandBuilder().setName('removetoken').setDescription('remove openai api token'),
+        execute: async (interaction) => {
+            const guildId = interaction.guildId;
+            if (guildId === null) {
+                await interaction.reply('Error occurred.');
+                return;
+            }
+            const tokens = await db.find({ guildId: guildId });
+            if (tokens.length === 0) {
+                await interaction.reply('Token is not set.');
+                return;
+            }
+            await db.remove({ guildId: guildId }, { multi: true });
+            await interaction.reply({ content: 'Token removed successfully. ', ephemeral: true });
+        },
+    },
+    {
+        data: new SlashCommandBuilder().setName('edittoken').setDescription('edit openai api token').addStringOption((option) =>
+            option
+                .setName('token')
+                .setDescription('openai api token')
+                .setRequired(true)
+        ),
+        execute: async (interaction) => {
+            const token = interaction.options.getString('token');
+            const guildId = interaction.guildId;
+            if (token === null || guildId === null) {
+                await interaction.reply('Error occurred.');
+                return;
+            }
+            const tokens = await db.find({ guildId: guildId });
+            if (tokens.length === 0) {
+                await interaction.reply('Token is not set.');
+                return;
+            }
+            await db.update({ guildId: guildId }, { $set: { token: token } });
+            await interaction.reply({ content: 'Token edited successfully. ', ephemeral: true });
+        },
+    }
 ];
 
 client.once(Events.ClientReady, (c: Client) => {
