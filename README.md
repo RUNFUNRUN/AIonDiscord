@@ -4,7 +4,7 @@
 
 ### 初回
 
-`.env.sample`を参考に`.env`にDiscordのトークンと、OpenAIのAPIキーを入力する。
+`.env.sample`を参考に`.env`にDiscordのトークンを入力する。
 
 ```
 docker compose run --rm app /bin/bash
