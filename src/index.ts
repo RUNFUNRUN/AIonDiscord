@@ -182,7 +182,6 @@ client.on(Events.MessageCreate, async (message: Message) => {
     if (message.author.bot) {
         return;
     } else if (!checkIfActive(guildId || '')) {
-        message.reply('AI is inactive.');
         return;
     }
     const token = (await db.findOne({ guildId: message.guildId }) as tokenData).token;
@@ -195,6 +194,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
             model: 'gpt-3.5-turbo',
             messages: [{ role: 'user', content: message.content }],
         });
+        message.channel.sendTyping();
         if (completion.data.choices[0].message === undefined) {
             throw new Error('No response from AI.');
         }
