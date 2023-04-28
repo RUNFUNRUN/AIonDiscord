@@ -139,7 +139,7 @@ const commands: Command[] = [
         return;
       }
       await db.remove({ guildId: guildId }, { multi: true });
-      await interaction.reply({ content: 'Token removed successfully. ', ephemeral: true });
+      await interaction.reply({ content: 'Token removed successfully.' });
     },
   },
   {
