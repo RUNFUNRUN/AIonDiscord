@@ -5,20 +5,33 @@
 ### 起動
 
 ```
-docker compose up
+$ docker compose up
 ```
 
-で起動する。
-
-バックグラウンドで起動したい場合はこちら。
+### バックグラウンド起動
 
 ```
-docker compose up -d
+$ docker compose up -d
 ```
 
-コンテナの自動起動をしたい場合は、`docker-compose.yml`に以下を追加する。
+### ログ確認
 
-```yml
-# app:
-    restart: always
 ```
+$ docker compose logs
+```
+
+## 注意点
+
+- OpenAIのAPIキーを準備する必要があります。
+
+- `init.sh`のパーミッションを環境に合わせて変える必要がある可能性があります。
+下記は例です。
+
+```
+$ chmod 744 init.sh
+```
+
+
+- `package.json`が変更された時は、一度`node_modules`を削除してください。
+
+- コマンドの使い方は、`src/doc.md`またはbot内で`/help`コマンドを実行してください。

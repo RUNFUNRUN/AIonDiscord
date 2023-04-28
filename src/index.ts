@@ -14,6 +14,7 @@ import { Configuration, OpenAIApi } from 'openai';
 import Datastore from 'nedb-promises';
 
 const discordToken = process.env.TOKEN;
+const doc = fs.readFileSync('./src/doc.md', 'utf-8');
 
 /* interface */
 
@@ -64,14 +65,18 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder()
-      .setName('comeai')
-      .setDescription('come ai'),
+    data: new SlashCommandBuilder().setName('help').setDescription('show help'),
+    execute: async (interaction) => {
+      await interaction.reply(doc);
+    },
+  },
+  {
+    data: new SlashCommandBuilder().setName('comeai').setDescription('come ai'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
       // if database does not have token data, return.
-      const tokens = await db.find({ guildId: guildId });
-      if (tokens.length === 0) {
+      const token = await db.find({ guildId: guildId });
+      if (token.length === 0) {
         await interaction.reply('Token is not set.');
         return;
       }
@@ -85,9 +90,7 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder()
-      .setName('byeai')
-      .setDescription('bye ai'),
+    data: new SlashCommandBuilder().setName('byeai').setDescription('bye ai'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
       if (!checkIfActive(guildId)) {
@@ -101,43 +104,37 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder()
-      .setName('inittoken')
-      .setDescription('set openai api token')
-      .addStringOption((option) =>
-        option
-          .setName('token')
-          .setDescription('openai api token')
-          .setRequired(true)
-      ),
+    data: new SlashCommandBuilder().setName('settoken').setDescription('set openai api token')
+      .addStringOption((option) => option.setName('token').setDescription('openai api token').setRequired(true)),
     execute: async (interaction) => {
       const token = interaction.options.getString('token');
       const guildId = interaction.guildId;
       // if guildId is already in database, return.
-      const tokens = await db.find({ guildId: guildId });
-      if (tokens.length !== 0) {
-        await interaction.reply('Token is already set.');
+      const oldToken = await db.find({ guildId: guildId });
+      if (token == null || guildId === null) {
+        await interaction.reply('Error occurred.');
         return;
       }
-      if (token === null || guildId === null) {
-        await interaction.reply('Error occurred.');
+      if (oldToken.length !== 0) {
+        await db.update({ guildId: guildId }, { $set: { token: token } });
+        await interaction.reply({ content: 'Token edited successfully.' });
         return;
       }
       const insData: tokenData = { token, guildId };
       await db.insert(insData);
-      await interaction.reply({ content: 'Token set successfully. ', ephemeral: true });
+      await interaction.reply({ content: 'Token set successfully.' });
     },
   },
   {
     data: new SlashCommandBuilder().setName('removetoken').setDescription('remove openai api token'),
     execute: async (interaction) => {
       const guildId = interaction.guildId;
-      if (guildId === null) {
+      const token = await db.find({ guildId: guildId });
+      if (token === null || guildId === null) {
         await interaction.reply('Error occurred.');
         return;
       }
-      const tokens = await db.find({ guildId: guildId });
-      if (tokens.length === 0) {
+      if (token.length === 0) {
         await interaction.reply('Token is not set.');
         return;
       }
@@ -146,26 +143,30 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder().setName('edittoken').setDescription('edit openai api token').addStringOption((option) =>
-      option
-        .setName('token')
-        .setDescription('openai api token')
-        .setRequired(true)
-    ),
+    data: new SlashCommandBuilder().setName('checktoken').setDescription('openai api token is set or not'),
     execute: async (interaction) => {
-      const token = interaction.options.getString('token');
-      const guildId = interaction.guildId;
+      const guildId = interaction.guildId as string;
+      const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
       if (token === null || guildId === null) {
         await interaction.reply('Error occurred.');
         return;
       }
-      const tokens = await db.find({ guildId: guildId });
-      if (tokens.length === 0) {
+      if (token.length === 0) {
         await interaction.reply('Token is not set.');
         return;
       }
-      await db.update({ guildId: guildId }, { $set: { token: token } });
-      await interaction.reply({ content: 'Token edited successfully. ', ephemeral: true });
+      const openai = new OpenAIApi(
+        new Configuration({ apiKey: token })
+      );
+      await openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: 'Hello' }],
+      }).then(async () => {
+        await interaction.reply({ content: 'Token works.' });
+      }).catch(async (err) => {
+        console.log(err);
+        await interaction.reply({ content: 'Token does not work.\nDetail:\n```' + err + '```' });
+      });
     },
   }
 ];
