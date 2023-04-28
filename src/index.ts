@@ -146,27 +146,27 @@ const commands: Command[] = [
     data: new SlashCommandBuilder().setName('checktoken').setDescription('openai api token is set or not'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
-      const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
-      if (token === null || guildId === null) {
-        await interaction.reply('Error occurred.');
-        return;
-      }
-      if (token.length === 0) {
+      try {
+        const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
+        if (token.length === 0 || token === null) {
+          await interaction.reply('Token is not set.');
+          return;
+        }
+        const openai = new OpenAIApi(
+          new Configuration({ apiKey: token })
+        );
+        await openai.createChatCompletion({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: 'Hello' }],
+        }).then(async () => {
+          await interaction.reply({ content: 'Token works.' });
+        }).catch(async (err) => {
+          console.log(err);
+          await interaction.reply({ content: 'Token does not work.\nDetail:\n```' + err + '```' });
+        });
+      } catch (err) {
         await interaction.reply('Token is not set.');
-        return;
       }
-      const openai = new OpenAIApi(
-        new Configuration({ apiKey: token })
-      );
-      await openai.createChatCompletion({
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: 'Hello' }],
-      }).then(async () => {
-        await interaction.reply({ content: 'Token works.' });
-      }).catch(async (err) => {
-        console.log(err);
-        await interaction.reply({ content: 'Token does not work.\nDetail:\n```' + err + '```' });
-      });
     },
   }
 ];
