@@ -125,7 +125,7 @@ const commands: Command[] = [
     data: new SlashCommandBuilder().setName('setkey').setDescription('set openai api key')
       .addStringOption((option) => option.setName('apikey').setDescription('openai api key').setRequired(true)),
     execute: async (interaction) => {
-      const key = interaction.options.getString('key');
+      const key = interaction.options.getString('apikey');
       const guildId = interaction.guildId;
       // if guildId is already in database, return.
       const oldKey = await db.find({ guildId: guildId });
