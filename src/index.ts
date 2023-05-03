@@ -13,7 +13,7 @@ dotenv.config();
 import { Configuration, OpenAIApi } from 'openai';
 import Datastore from 'nedb-promises';
 
-const discordToken = process.env.TOKEN;
+const discordKey = process.env.TOKEN;
 const doc = fs.readFileSync('./src/doc.md', 'utf-8');
 
 /* interface */
@@ -23,8 +23,8 @@ interface Command {
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 // interface of database
-interface tokenData {
-  token: string;
+interface keyData {
+  key: string;
   guildId: string;
 }
 
@@ -89,10 +89,10 @@ const commands: Command[] = [
         guildId,
         channelId: interaction.channelId as string
       };
-      // if database does not have token data, return.
-      const token = await db.find({ guildId: guildId });
-      if (token.length === 0) {
-        await interaction.reply('Token is not set.');
+      // if database does not have key data, return.
+      const key = await db.find({ guildId: guildId });
+      if (key.length === 0) {
+        await interaction.reply('Key is not set.');
         return;
       }
       //if guildId is already in activeGuilds, return.
@@ -122,68 +122,68 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder().setName('settoken').setDescription('set openai api token')
-      .addStringOption((option) => option.setName('token').setDescription('openai api token').setRequired(true)),
+    data: new SlashCommandBuilder().setName('setkey').setDescription('set openai api key')
+      .addStringOption((option) => option.setName('apikey').setDescription('openai api key').setRequired(true)),
     execute: async (interaction) => {
-      const token = interaction.options.getString('token');
+      const key = interaction.options.getString('key');
       const guildId = interaction.guildId;
       // if guildId is already in database, return.
-      const oldToken = await db.find({ guildId: guildId });
-      if (token == null || guildId === null) {
+      const oldKey = await db.find({ guildId: guildId });
+      if (key == null || guildId === null) {
         await interaction.reply('Error occurred.');
         return;
       }
-      if (oldToken.length !== 0) {
-        await db.update({ guildId: guildId }, { $set: { token: token } });
-        await interaction.reply({ content: 'Token edited successfully.' });
+      if (oldKey.length !== 0) {
+        await db.update({ guildId: guildId }, { $set: { key: key } });
+        await interaction.reply({ content: 'OpenAI API key edited successfully.' });
         return;
       }
-      const insData: tokenData = { token, guildId };
+      const insData: keyData = { key, guildId };
       await db.insert(insData);
-      await interaction.reply({ content: 'Token set successfully.' });
+      await interaction.reply({ content: 'OpenAI API key set successfully.' });
     },
   },
   {
-    data: new SlashCommandBuilder().setName('removetoken').setDescription('remove openai api token'),
+    data: new SlashCommandBuilder().setName('removekey').setDescription('remove openai api key'),
     execute: async (interaction) => {
       const guildId = interaction.guildId;
-      const token = await db.find({ guildId: guildId });
-      if (token === null || guildId === null) {
+      const key = await db.find({ guildId: guildId });
+      if (key === null || guildId === null) {
         await interaction.reply('Error occurred.');
         return;
       }
-      if (token.length === 0) {
-        await interaction.reply('Token is not set.');
+      if (key.length === 0) {
+        await interaction.reply('OpenAI API key is not set.');
         return;
       }
       await db.remove({ guildId: guildId }, { multi: true });
-      await interaction.reply({ content: 'Token removed successfully.' });
+      await interaction.reply({ content: 'Key removed successfully.' });
     },
   },
   {
-    data: new SlashCommandBuilder().setName('checktoken').setDescription('openai api token is set or not'),
+    data: new SlashCommandBuilder().setName('checkkey').setDescription('openai api key is set or not'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
       try {
-        const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
-        if (token.length === 0 || token === null) {
-          await interaction.reply('Token is not set.');
+        const key = (await db.findOne({ guildId: guildId }) as keyData).key;
+        if (key.length === 0 || key === null) {
+          await interaction.reply('OpenAI API key is not set.');
           return;
         }
         const openai = new OpenAIApi(
-          new Configuration({ apiKey: token })
+          new Configuration({ apiKey: key })
         );
         await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
           messages: [{ role: 'user', content: 'Hello' }],
         }).then(async () => {
-          await interaction.reply({ content: 'Token works.' });
+          await interaction.reply({ content: 'OpenAI API key works.' });
         }).catch(async (err) => {
           console.log(err);
-          await interaction.reply({ content: 'Token does not work.\nDetail:\n```' + err + '```' });
+          await interaction.reply({ content: 'OpenAI API key does not work.\nDetail:\n```' + err + '```' });
         });
       } catch (err) {
-        await interaction.reply('Token is not set.');
+        await interaction.reply('OpenAI API key is not set.');
       }
     },
   }
@@ -207,11 +207,11 @@ client.on(Events.MessageCreate, async (message: Message) => {
   } else if (!checkIfActive(channelInfo)) {
     return;
   }
-  const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
+  const key = (await db.findOne({ guildId: guildId }) as keyData).key;
   try {
     message.channel.sendTyping();
     const openai = new OpenAIApi(
-      new Configuration({ apiKey: token })
+      new Configuration({ apiKey: key })
     );
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
@@ -261,4 +261,4 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   }
 });
 
-client.login(discordToken);
+client.login(discordKey);
