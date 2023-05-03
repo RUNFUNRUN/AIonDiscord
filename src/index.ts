@@ -40,7 +40,13 @@ interface tokenData {
 })();
 
 const db = Datastore.create('./db/ai.db');
-let activeGuilds: string[] = [];
+
+type channelInfo = {
+  guildId: string;
+  channelId: string;
+};
+
+let activeChannels: channelInfo[] = [];
 
 const client = new Client({
   intents: [
@@ -51,9 +57,14 @@ const client = new Client({
   ],
 });
 
-const checkIfActive = (guildId: string) => activeGuilds.includes(guildId);
-const aiLogs = (guildId: string) => {
-  const isActive = checkIfActive(guildId);
+const checkIfActive = (channelInfo: channelInfo) => {
+  if (activeChannels.some(channelsList => channelsList.guildId === channelInfo.guildId && channelsList.channelId === channelInfo.channelId)) {
+    return true;
+  }
+  return false;
+}
+const aiLogs = (channelInfo: channelInfo) => {
+  const isActive = checkIfActive(channelInfo);
   return isActive ? 'AI is active.' : 'AI is inactive.';
 };
 
@@ -74,6 +85,10 @@ const commands: Command[] = [
     data: new SlashCommandBuilder().setName('comeai').setDescription('come ai'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
+      const channelInfo: channelInfo = {
+        guildId,
+        channelId: interaction.channelId as string
+      };
       // if database does not have token data, return.
       const token = await db.find({ guildId: guildId });
       if (token.length === 0) {
@@ -81,26 +96,29 @@ const commands: Command[] = [
         return;
       }
       //if guildId is already in activeGuilds, return.
-      if (checkIfActive(guildId)) {
+      if (checkIfActive(channelInfo)) {
         await interaction.reply('AI is already active.');
         return;
       }
-      activeGuilds.push(guildId);
-      await interaction.reply(aiLogs(guildId));
+      activeChannels.push(channelInfo);
+      await interaction.reply(aiLogs(channelInfo));
     },
   },
   {
     data: new SlashCommandBuilder().setName('byeai').setDescription('bye ai'),
     execute: async (interaction) => {
-      const guildId = interaction.guildId as string;
-      if (!checkIfActive(guildId)) {
+      const channelInfo: channelInfo = {
+        guildId: interaction.guildId as string,
+        channelId: interaction.channelId as string
+      };
+      if (!checkIfActive(channelInfo)) {
         await interaction.reply('AI is already inactive.');
         return;
       }
-      activeGuilds = activeGuilds.filter(
-        (guildId) => guildId !== guildId
+      activeChannels = activeChannels.filter(
+        (channelInfo) => channelInfo !== channelInfo
       );
-      await interaction.reply(aiLogs(guildId));
+      await interaction.reply(aiLogs(channelInfo));
     },
   },
   {
@@ -179,13 +197,17 @@ client.once(Events.ClientReady, (c: Client) => {
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
-  const guildId = message.guildId;
+  const guildId = message.guildId as string;
+  const channelInfo: channelInfo = {
+    guildId: guildId,
+    channelId: message.channelId as string
+  };
   if (message.author.bot) {
     return;
-  } else if (!checkIfActive(guildId || '')) {
+  } else if (!checkIfActive(channelInfo)) {
     return;
   }
-  const token = (await db.findOne({ guildId: message.guildId }) as tokenData).token;
+  const token = (await db.findOne({ guildId: guildId }) as tokenData).token;
   try {
     message.channel.sendTyping();
     const openai = new OpenAIApi(
@@ -228,7 +250,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     // execute command
     await command.execute(interaction as ChatInputCommandInteraction);
     console.log(`Command ${commandName} executed.`);
-    console.log(`activeGuilds: ${activeGuilds}`);
+    console.log('activeChannels: %o', activeChannels);
   } catch (error) {
     // error occurred
     console.error(error);
