@@ -41,6 +41,12 @@ interface keyData {
 
 const db = Datastore.create('./db/ai.db');
 
+// for searching
+type currentChannel = {
+  guildId: string;
+  channelId: string;
+};
+// for archive messages
 type channelInfo = {
   guildId: string;
   channelId: string;
@@ -70,8 +76,8 @@ const checkIfActive = (channelInfo: { guildId: string; channelId: string }) => {
   }
   return false;
 };
-const aiLogs = (channelInfo: channelInfo) => {
-  const isActive = checkIfActive(channelInfo);
+const aiLogs = (currentChannel: currentChannel) => {
+  const isActive = checkIfActive(currentChannel);
   return isActive ? 'AI is active.' : 'AI is inactive.';
 };
 
@@ -115,19 +121,45 @@ const commands: Command[] = [
   {
     data: new SlashCommandBuilder().setName('byeai').setDescription('bye ai'),
     execute: async (interaction) => {
-      const channelInfo: channelInfo = {
+      const currentChannel: currentChannel = {
         guildId: interaction.guildId as string,
         channelId: interaction.channelId as string,
-        messagesInfo: [],
       };
-      if (!checkIfActive(channelInfo)) {
+      if (!checkIfActive(currentChannel)) {
         await interaction.reply('AI is already inactive.');
         return;
       }
-      activeChannels = activeChannels.filter(
-        (channelInfo) => channelInfo !== channelInfo
+      const index = activeChannels.findIndex(
+        (channelInfo) =>
+          currentChannel.guildId === channelInfo.guildId &&
+          currentChannel.channelId === channelInfo.channelId
       );
-      await interaction.reply(aiLogs(channelInfo));
+
+      activeChannels.splice(index, 1);
+      await interaction.reply(aiLogs(currentChannel));
+    },
+  },
+  {
+    data: new SlashCommandBuilder()
+      .setName('resetai')
+      .setDescription('purge the talk history'),
+    execute: async (interaction) => {
+      const currentChannel: currentChannel = {
+        guildId: interaction.guildId as string,
+        channelId: interaction.channelId as string,
+      };
+      if (!checkIfActive(currentChannel)) {
+        await interaction.reply('AI is inactive.');
+        return;
+      }
+      const index = activeChannels.findIndex(
+        (channelInfo) =>
+          currentChannel.guildId === channelInfo.guildId &&
+          currentChannel.channelId === channelInfo.channelId
+      );
+      console.log(index);
+      activeChannels[index].messagesInfo = [];
+      await interaction.reply('Talk history purged.');
     },
   },
   {
@@ -241,27 +273,27 @@ client.on(Events.MessageCreate, async (message: Message) => {
   //
   try {
     message.channel.sendTyping();
-    const currentChannel = activeChannels.find(
+    const channelInfo = activeChannels.find(
       (channelInfo) =>
         channelInfo.guildId === guildId && channelInfo.channelId === channelId
     );
-    if (currentChannel === undefined) {
+    if (channelInfo === undefined) {
       throw new Error('Channel not found.');
     }
-    currentChannel.messagesInfo.push({
+    channelInfo.messagesInfo.push({
       role: 'user',
       content: message.content,
     });
     const openai = new OpenAIApi(new Configuration({ apiKey: key }));
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
-      messages: currentChannel.messagesInfo,
+      messages: channelInfo.messagesInfo,
     });
     if (completion.data.choices[0].message === undefined) {
       throw new Error('No response from AI.');
     }
     const answer = completion.data.choices[0].message.content;
-    currentChannel.messagesInfo.push({
+    channelInfo.messagesInfo.push({
       role: 'assistant',
       content: answer,
     });
