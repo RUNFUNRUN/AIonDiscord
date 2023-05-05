@@ -140,9 +140,7 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder()
-      .setName('resetai')
-      .setDescription('purge the talk history'),
+    data: new SlashCommandBuilder().setName('resetai').setDescription('purge the talk history'),
     execute: async (interaction) => {
       const currentChannel: currentChannel = {
         guildId: interaction.guildId as string,
