@@ -41,9 +41,15 @@ interface keyData {
 
 const db = Datastore.create('./db/ai.db');
 
+type messageInfo = {
+  role: string;
+  message: string;
+};
+
 type channelInfo = {
   guildId: string;
   channelId: string;
+  messagesInfo?: messageInfo[];
 };
 
 let activeChannels: channelInfo[] = [];
