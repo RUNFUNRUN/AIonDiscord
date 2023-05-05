@@ -10,7 +10,7 @@ import {
 import fs from 'fs';
 import dotenv from 'dotenv';
 dotenv.config();
-import { Configuration, OpenAIApi } from 'openai';
+import { ChatCompletionRequestMessage, Configuration, OpenAIApi } from 'openai';
 import Datastore from 'nedb-promises';
 
 const discordKey = process.env.TOKEN;
@@ -41,15 +41,10 @@ interface keyData {
 
 const db = Datastore.create('./db/ai.db');
 
-type messageInfo = {
-  role: string;
-  message: string;
-};
-
 type channelInfo = {
   guildId: string;
   channelId: string;
-  messagesInfo?: messageInfo[];
+  messagesInfo: ChatCompletionRequestMessage[];
 };
 
 let activeChannels: channelInfo[] = [];
@@ -63,12 +58,18 @@ const client = new Client({
   ],
 });
 
-const checkIfActive = (channelInfo: channelInfo) => {
-  if (activeChannels.some(channelsList => channelsList.guildId === channelInfo.guildId && channelsList.channelId === channelInfo.channelId)) {
+const checkIfActive = (channelInfo: { guildId: string; channelId: string }) => {
+  if (
+    activeChannels.some(
+      (channelsList) =>
+        channelsList.guildId === channelInfo.guildId &&
+        channelsList.channelId === channelInfo.channelId
+    )
+  ) {
     return true;
   }
   return false;
-}
+};
 const aiLogs = (channelInfo: channelInfo) => {
   const isActive = checkIfActive(channelInfo);
   return isActive ? 'AI is active.' : 'AI is inactive.';
@@ -93,7 +94,8 @@ const commands: Command[] = [
       const guildId = interaction.guildId as string;
       const channelInfo: channelInfo = {
         guildId,
-        channelId: interaction.channelId as string
+        channelId: interaction.channelId as string,
+        messagesInfo: [],
       };
       // if database does not have key data, return.
       const key = await db.find({ guildId: guildId });
@@ -115,7 +117,8 @@ const commands: Command[] = [
     execute: async (interaction) => {
       const channelInfo: channelInfo = {
         guildId: interaction.guildId as string,
-        channelId: interaction.channelId as string
+        channelId: interaction.channelId as string,
+        messagesInfo: [],
       };
       if (!checkIfActive(channelInfo)) {
         await interaction.reply('AI is already inactive.');
@@ -128,8 +131,15 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder().setName('setkey').setDescription('set openai api key')
-      .addStringOption((option) => option.setName('apikey').setDescription('openai api key').setRequired(true)),
+    data: new SlashCommandBuilder()
+      .setName('setkey')
+      .setDescription('set openai api key')
+      .addStringOption((option) =>
+        option
+          .setName('apikey')
+          .setDescription('openai api key')
+          .setRequired(true)
+      ),
     execute: async (interaction) => {
       const key = interaction.options.getString('apikey');
       const guildId = interaction.guildId;
@@ -141,7 +151,9 @@ const commands: Command[] = [
       }
       if (oldKey.length !== 0) {
         await db.update({ guildId: guildId }, { $set: { key: key } });
-        await interaction.reply({ content: 'OpenAI API key edited successfully.' });
+        await interaction.reply({
+          content: 'OpenAI API key edited successfully.',
+        });
         return;
       }
       const insData: keyData = { key, guildId };
@@ -150,7 +162,9 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder().setName('removekey').setDescription('remove openai api key'),
+    data: new SlashCommandBuilder()
+      .setName('removekey')
+      .setDescription('remove openai api key'),
     execute: async (interaction) => {
       const guildId = interaction.guildId;
       const key = await db.find({ guildId: guildId });
@@ -167,68 +181,92 @@ const commands: Command[] = [
     },
   },
   {
-    data: new SlashCommandBuilder().setName('checkkey').setDescription('openai api key is set or not'),
+    data: new SlashCommandBuilder()
+      .setName('checkkey')
+      .setDescription('openai api key is set or not'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
       try {
-        const key = (await db.findOne({ guildId: guildId }) as keyData).key;
+        const key = ((await db.findOne({ guildId: guildId })) as keyData).key;
         if (key.length === 0 || key === null) {
           await interaction.reply('OpenAI API key is not set.');
           return;
         }
-        const openai = new OpenAIApi(
-          new Configuration({ apiKey: key })
-        );
-        await openai.createChatCompletion({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: 'Hello' }],
-        }).then(async () => {
-          await interaction.reply({ content: 'OpenAI API key works.' });
-        }).catch(async (err) => {
-          console.log(err);
-          await interaction.reply({ content: 'OpenAI API key does not work.\nDetail:\n```' + err + '```' });
-        });
+        const openai = new OpenAIApi(new Configuration({ apiKey: key }));
+        await openai
+          .createChatCompletion({
+            model: 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: 'Hello' }],
+          })
+          .then(async () => {
+            await interaction.reply({ content: 'OpenAI API key works.' });
+          })
+          .catch(async (err) => {
+            console.log(err);
+            await interaction.reply({
+              content:
+                'OpenAI API key does not work.\nDetail:\n```' + err + '```',
+            });
+          });
       } catch (err) {
         await interaction.reply('OpenAI API key is not set.');
       }
     },
-  }
+  },
 ];
 
 client.once(Events.ClientReady, (c: Client) => {
   console.log(`Ready! Logged in as ${c.user?.tag}`);
-  c.application?.commands.set(Array.from(commands.map((command) => command.data))).then(() => {
-    console.log('Commands set.');
-  });
+  c.application?.commands
+    .set(Array.from(commands.map((command) => command.data)))
+    .then(() => {
+      console.log('Commands set.');
+    });
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
   const guildId = message.guildId as string;
-  const channelInfo: channelInfo = {
-    guildId: guildId,
-    channelId: message.channelId as string
-  };
+  const channelId = message.channelId as string;
   if (message.author.bot) {
     return;
-  } else if (!checkIfActive(channelInfo)) {
+  } else if (
+    !checkIfActive({
+      guildId: guildId,
+      channelId: channelId,
+    })
+  ) {
     return;
   }
-  const key = (await db.findOne({ guildId: guildId }) as keyData).key;
+  const key = ((await db.findOne({ guildId: guildId })) as keyData).key;
+  //
   try {
     message.channel.sendTyping();
-    const openai = new OpenAIApi(
-      new Configuration({ apiKey: key })
+    const currentChannel = activeChannels.find(
+      (channelInfo) =>
+        channelInfo.guildId === guildId && channelInfo.channelId === channelId
     );
+    if (currentChannel === undefined) {
+      throw new Error('Channel not found.');
+    }
+    currentChannel.messagesInfo.push({
+      role: 'user',
+      content: message.content,
+    });
+    const openai = new OpenAIApi(new Configuration({ apiKey: key }));
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: message.content }],
+      messages: currentChannel.messagesInfo,
     });
-    message.channel.sendTyping();
     if (completion.data.choices[0].message === undefined) {
       throw new Error('No response from AI.');
     }
+    const answer = completion.data.choices[0].message.content;
+    currentChannel.messagesInfo.push({
+      role: 'assistant',
+      content: answer,
+    });
     await message.channel.send({
-      content: completion.data.choices[0].message.content,
+      content: answer,
       reply: { messageReference: message.id },
       allowedMentions: { repliedUser: false },
     });
@@ -245,9 +283,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
     return;
   }
   const commandName = interaction.commandName;
-  const command = commands.find(
-    (command) => command.data.name === commandName
-  );
+  const command = commands.find((command) => command.data.name === commandName);
   if (!command) {
     // command is not found
     return;
