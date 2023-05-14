@@ -16,17 +16,26 @@ import Datastore from 'nedb-promises';
 const discordKey = process.env.TOKEN;
 const doc = fs.readFileSync('./src/doc.md', 'utf-8');
 
-/* interface */
-
-interface Command {
+type Command = {
   data: { name: string; description: string };
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
-// interface of database
-interface keyData {
+
+type KeyData = {
   key: string;
   guildId: string;
 }
+// for searching
+type CurrentChannel = {
+  guildId: string;
+  channelId: string;
+};
+// for archive messages
+type ChannelInfo = {
+  guildId: string;
+  channelId: string;
+  messagesInfo: ChatCompletionRequestMessage[];
+};
 
 /* config */
 // if ./db directory does not exist, create it.
@@ -41,19 +50,7 @@ interface keyData {
 
 const db = Datastore.create('./db/ai.db');
 
-// for searching
-type currentChannel = {
-  guildId: string;
-  channelId: string;
-};
-// for archive messages
-type channelInfo = {
-  guildId: string;
-  channelId: string;
-  messagesInfo: ChatCompletionRequestMessage[];
-};
-
-let activeChannels: channelInfo[] = [];
+let activeChannels: ChannelInfo[] = [];
 
 const client = new Client({
   intents: [
@@ -76,7 +73,7 @@ const checkIfActive = (channelInfo: { guildId: string; channelId: string }) => {
   }
   return false;
 };
-const aiLogs = (currentChannel: currentChannel) => {
+const aiLogs = (currentChannel: CurrentChannel) => {
   const isActive = checkIfActive(currentChannel);
   return isActive ? 'AI is active.' : 'AI is inactive.';
 };
@@ -98,7 +95,7 @@ const commands: Command[] = [
     data: new SlashCommandBuilder().setName('comeai').setDescription('come ai'),
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
-      const channelInfo: channelInfo = {
+      const channelInfo: ChannelInfo = {
         guildId,
         channelId: interaction.channelId as string,
         messagesInfo: [],
@@ -121,7 +118,7 @@ const commands: Command[] = [
   {
     data: new SlashCommandBuilder().setName('byeai').setDescription('bye ai'),
     execute: async (interaction) => {
-      const currentChannel: currentChannel = {
+      const currentChannel: CurrentChannel = {
         guildId: interaction.guildId as string,
         channelId: interaction.channelId as string,
       };
@@ -142,7 +139,7 @@ const commands: Command[] = [
   {
     data: new SlashCommandBuilder().setName('resetai').setDescription('purge the talk history'),
     execute: async (interaction) => {
-      const currentChannel: currentChannel = {
+      const currentChannel: CurrentChannel = {
         guildId: interaction.guildId as string,
         channelId: interaction.channelId as string,
       };
@@ -186,7 +183,7 @@ const commands: Command[] = [
         });
         return;
       }
-      const insData: keyData = { key, guildId };
+      const insData: KeyData = { key, guildId };
       await db.insert(insData);
       await interaction.reply({ content: 'OpenAI API key set successfully.' });
     },
@@ -217,7 +214,7 @@ const commands: Command[] = [
     execute: async (interaction) => {
       const guildId = interaction.guildId as string;
       try {
-        const key = ((await db.findOne({ guildId: guildId })) as keyData).key;
+        const key = ((await db.findOne({ guildId: guildId })) as KeyData).key;
         if (key.length === 0 || key === null) {
           await interaction.reply('OpenAI API key is not set.');
           return;
@@ -267,7 +264,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
   ) {
     return;
   }
-  const key = ((await db.findOne({ guildId: guildId })) as keyData).key;
+  const key = ((await db.findOne({ guildId: guildId })) as KeyData).key;
   //
   try {
     message.channel.sendTyping();
