@@ -50,7 +50,7 @@ type ChannelInfo = {
 
 const db = Datastore.create('./db/ai.db');
 
-let activeChannels: ChannelInfo[] = [];
+const activeChannels: ChannelInfo[] = [];
 
 const client = new Client({
   intents: [
